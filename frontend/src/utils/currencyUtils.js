@@ -43,6 +43,11 @@ export const SUPPORTED_CURRENCIES = {
   TRY: { symbol: '₺', name: 'Turkish Lira', code: 'TRY', flag: '🇹🇷' },
 };
 
+// Quick access to currency symbols
+export const CURRENCY_SYMBOLS = Object.fromEntries(
+  Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => [code, info.symbol])
+);
+
 // Exchange rates (USD as base currency for better accuracy)
 export const EXCHANGE_RATES = {
   USD: 1,

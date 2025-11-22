@@ -69,7 +69,7 @@ function AuthPage({ onAuthSuccess }) {
             💰
           </motion.div>
           <h1 className="text-4xl font-black text-white mb-2 font-heading">
-            Expense Analyzer
+            FinanceHub
           </h1>
           <p className="text-gray-300 text-lg font-body">
             {isLogin ? 'Welcome back!' : 'Start tracking your finances'}

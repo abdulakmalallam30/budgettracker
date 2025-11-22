@@ -3,7 +3,6 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 import { Pie, Bar, Line } from 'react-chartjs-2';
 import { getCategoryIcon, getCategoryColor } from '../utils/categoryUtils';
 import { FileText, FileSpreadsheet, Trash2 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { formatCurrency } from '../utils/currencyUtils';
@@ -312,82 +311,65 @@ function Dashboard({ analytics, expenses = [], onDeleteExpense, showOnlyCharts, 
     return (
       <div className="space-y-8">
         {/* Export Buttons */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex justify-end gap-4"
-        >
-          <motion.button
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.98 }}
+        <div className="flex flex-wrap justify-end gap-3">
+          <button
             onClick={exportToCSV}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold font-display shadow-md hover:shadow-lg transition-all duration-300"
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95"
           >
             <FileSpreadsheet size={20} />
             <span>Export CSV</span>
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.98 }}
+          </button>
+          <button
             onClick={exportToPDF}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-bold font-display shadow-md hover:shadow-lg transition-all duration-300"
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-red-500/40 transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95"
           >
             <FileText size={20} />
             <span>Export PDF</span>
-          </motion.button>
-        </motion.div>
+          </button>
+        </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Pie Chart */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"
-          >
-            <h3 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-3 font-heading tracking-tight">
-              <span className="text-2xl">📊</span>
+          <div className="bg-[#1A1D29] rounded-2xl p-6 border border-gray-800/50 shadow-2xl hover:shadow-violet-500/5 hover:border-violet-500/30 transition-all duration-500 hover:-translate-y-1 animate-fadeIn stagger-1">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/20 flex items-center justify-center">
+                <span className="text-2xl">📊</span>
+              </div>
               <span>Category Distribution</span>
             </h3>
             <div className="h-96">
               <Pie data={pieChartData} options={pieChartOptions} />
             </div>
-          </motion.div>
+          </div>
 
           {/* Bar Chart */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"
-          >
-            <h3 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-3 font-heading tracking-tight">
-              <span className="text-2xl">🏆</span>
+          <div className="bg-[#1A1D29] rounded-2xl p-6 border border-gray-800/50 shadow-2xl hover:shadow-emerald-500/5 hover:border-emerald-500/30 transition-all duration-500 hover:-translate-y-1 animate-fadeIn stagger-2">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
+                <span className="text-2xl">🏆</span>
+              </div>
               <span>Top Categories</span>
             </h3>
             <div className="h-96">
               <Bar data={barChartData} options={barChartOptions} />
             </div>
-          </motion.div>
+          </div>
         </div>
 
         {/* Line Chart - Full Width */}
         {sortedMonths.length > 1 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300"
-          >
-            <h3 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-3 font-heading tracking-tight">
-              <span className="text-2xl">📈</span>
+          <div className="bg-[#1A1D29] rounded-2xl p-6 border border-gray-800/50 shadow-2xl hover:shadow-blue-500/5 hover:border-blue-500/30 transition-all duration-500 hover:-translate-y-1 animate-fadeIn stagger-3">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
+                <span className="text-2xl">📈</span>
+              </div>
               <span>Spending Trends</span>
             </h3>
             <div className="h-96">
               <Line data={lineChartData} options={lineChartOptions} />
             </div>
-          </motion.div>
+          </div>
         )}
       </div>
     );
@@ -396,79 +378,74 @@ function Dashboard({ analytics, expenses = [], onDeleteExpense, showOnlyCharts, 
   // Only show transactions
   if (showOnlyTransactions) {
     return (
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-xl p-6 shadow-lg border border-gray-200"
-      >
-        <h3 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-3 font-heading tracking-tight">
-          <span className="text-2xl">💳</span>
-          <span>All Transactions ({safeExpenses.length})</span>
-        </h3>
+      <div className="bg-[#1A1D29] rounded-2xl border border-gray-800/50 shadow-2xl overflow-hidden animate-fadeIn">
+        <div className="p-6 border-b border-gray-800/50 bg-gradient-to-r from-violet-500/5 to-indigo-500/5">
+          <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 flex items-center justify-center">
+              <span className="text-3xl">💳</span>
+            </div>
+            <span>All Transactions <span className="text-violet-400 font-medium">({safeExpenses.length})</span></span>
+          </h3>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider font-display">
+              <tr className="bg-[#0F1117] border-b border-gray-800/50">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider font-display">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Description
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider font-display">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Category
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider font-display">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Mode
                 </th>
-                <th className="px-6 py-4 text-right text-sm font-bold text-gray-700 uppercase tracking-wider font-display">
+                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Amount
                 </th>
-                <th className="px-6 py-4 text-center text-sm font-bold text-gray-700 uppercase tracking-wider font-display">
+                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-800/50">
               {safeExpenses.slice().reverse().map((expense, index) => {
                 const actualIndex = safeExpenses.length - 1 - index;
                 return (
-                <motion.tr 
+                <tr 
                   key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.02 }}
-                  className="hover:bg-gray-50 transition-all duration-200"
+                  className="hover:bg-[#252936] transition-all duration-200"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                     {new Date(expense.date).toLocaleDateString('en-IN', {
                       day: '2-digit',
                       month: 'short',
                       year: 'numeric'
                     })}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 font-bold font-body">
+                  <td className="px-6 py-4 text-sm text-white font-medium">
                     {expense.description}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 inline-flex items-center gap-2 text-xs font-bold font-display rounded-full bg-gradient-to-r ${getCategoryColor(expense.category)} text-white shadow-sm`}>
+                    <span className={`px-3 py-1.5 inline-flex items-center gap-2 text-xs font-semibold rounded-lg bg-gradient-to-r ${getCategoryColor(expense.category)} text-white`}>
                       <span className="text-sm">{getCategoryIcon(expense.category)}</span>
                       <span>{expense.category}</span>
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium font-body">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
                     {expense.mode}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-right text-green-600 font-display">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-right text-emerald-400">
                     {expense.originalCurrency && expense.originalAmount 
                       ? formatCurrency(expense.originalAmount, expense.originalCurrency)
                       : formatCurrency(parseFloat(expense.amount), expense.currency || selectedCurrency)
                     }
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
+                    <button
                       onClick={() => {
                         console.log('=== DELETE BUTTON CLICKED ===');
                         console.log('Full expense object:', expense);
@@ -481,39 +458,39 @@ function Dashboard({ analytics, expenses = [], onDeleteExpense, showOnlyCharts, 
                         console.log('=== CALLING onDeleteExpense ===');
                         onDeleteExpense(idToDelete);
                       }}
-                      className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 inline-flex items-center justify-center"
+                      className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg transition-all duration-200 inline-flex items-center justify-center border border-red-500/20 hover:border-red-500/40"
                       title="Delete transaction"
                     >
                       <Trash2 size={16} />
-                    </motion.button>
+                    </button>
                   </td>
-                </motion.tr>
+                </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   // Original full dashboard (used for overview)
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Export Buttons */}
-      <div className="flex justify-end space-x-4 opacity-0 animate-slideUp stagger-1">{/*...rest stays same...*/}
+      <div className="flex justify-end gap-3">
         <button
           onClick={exportToCSV}
-          className="flex items-center space-x-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-bold font-display shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-semibold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all duration-300"
         >
-          <FileSpreadsheet size={20} />
+          <FileSpreadsheet size={18} />
           <span>Export CSV</span>
         </button>
         <button
           onClick={exportToPDF}
-          className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300"
+          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg font-semibold shadow-lg shadow-red-500/20 hover:shadow-red-500/30 transition-all duration-300"
         >
-          <FileText size={20} />
+          <FileText size={18} />
           <span>Export PDF</span>
         </button>
       </div>
@@ -521,9 +498,9 @@ function Dashboard({ analytics, expenses = [], onDeleteExpense, showOnlyCharts, 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pie Chart */}
-        <div className="bg-white rounded-2xl shadow-2xl p-6 opacity-0 animate-slideUp stagger-2 card-3d hover:shadow-purple-300">
-          <h3 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-4 flex items-center space-x-2">
-            <span className="animate-pulse">📊</span>
+        <div className="bg-[#1A1D29] rounded-xl p-6 border border-gray-800/50 shadow-2xl hover:border-gray-700/50 transition-all duration-300">
+          <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
+            <span className="text-2xl">📊</span>
             <span>Spending by Category</span>
           </h3>
           <div className="h-80">
@@ -532,9 +509,9 @@ function Dashboard({ analytics, expenses = [], onDeleteExpense, showOnlyCharts, 
         </div>
 
         {/* Bar Chart */}
-        <div className="bg-white rounded-2xl shadow-2xl p-6 opacity-0 animate-slideUp stagger-3 card-3d hover:shadow-blue-300">
-          <h3 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent mb-4 flex items-center space-x-2">
-            <span className="animate-pulse">🏆</span>
+        <div className="bg-[#1A1D29] rounded-xl p-6 border border-gray-800/50 shadow-2xl hover:border-gray-700/50 transition-all duration-300">
+          <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
+            <span className="text-2xl">🏆</span>
             <span>Top 5 Expense Categories</span>
           </h3>
           <div className="h-80">
@@ -545,8 +522,8 @@ function Dashboard({ analytics, expenses = [], onDeleteExpense, showOnlyCharts, 
 
       {/* Line Chart - Full Width */}
       {sortedMonths.length > 1 && (
-        <div className="bg-white rounded-2xl shadow-2xl p-6 opacity-0 animate-slideUp stagger-4 card-3d hover:shadow-green-300">
-          <h3 className="text-xl font-bold bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent mb-4 flex items-center space-x-2">
+        <div className="bg-[#1A1D29] rounded-xl p-6 border border-gray-800/50 shadow-2xl hover:border-gray-700/50 transition-all duration-300">
+          <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-3">
             <span className="animate-pulse">📈</span>
             <span>Monthly Spending Trend</span>
           </h3>

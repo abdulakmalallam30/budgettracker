@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@google/genai": "^1.29.1",
     "axios": "^1.6.0",
     "chart.js": "^4.4.0",
     "framer-motion": "^11.18.2",
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
+    "nodemon": "^3.1.11",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5"
   },

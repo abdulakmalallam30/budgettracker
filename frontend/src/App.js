@@ -1,12 +1,15 @@
 import React from 'react';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import AuthenticatedApp from './components/AuthenticatedApp';
 
 function App() {
   return (
-    <AuthProvider>
-      <AuthenticatedApp />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AuthenticatedApp />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

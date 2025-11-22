@@ -1,417 +1,367 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const csv = require('csv-parser');
-const fs = require('fs');
-const path = require('path');
-const bodyParser = require('body-parser');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import multer from "multer";
+import csvParser from "csv-parser";
+import fs from "fs";
+import path from "path";
 
-const { categorizeExpenses, groupByCategory, groupByMonth, getTopCategories } = require('./categorizer');
-const { generateInsights } = require('./insightsGenerator');
-
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
-
+dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// Enhanced CORS and middleware
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
+// Handle preflight requests
+app.options('*', cors());
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`📥 ${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
 });
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+// Expense tracking endpoints with improved CSV processing
 const upload = multer({ 
-  storage: storage,
+  dest: 'uploads/',
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV files are allowed'));
+      cb(new Error('Only CSV files are allowed'), false);
     }
   }
 });
 
-// In-memory storage for demo (replace with database in production)
-let expensesData = [];
+let expenses = [];
 
-/**
- * Parse CSV file and return array of expenses
- */
-function parseCSVFile(filePath) {
-  return new Promise((resolve, reject) => {
-    const results = [];
+// Enhanced expense categorization
+const categorizeExpense = (description) => {
+  const desc = (description || '').toLowerCase();
+  
+  // Food & Dining
+  if (desc.includes('food') || desc.includes('restaurant') || desc.includes('zomato') || 
+      desc.includes('swiggy') || desc.includes('domino') || desc.includes('pizza') ||
+      desc.includes('grocery') || desc.includes('cafe') || desc.includes('starbucks')) {
+    return 'Food & Dining';
+  }
+  
+  // Transportation
+  if (desc.includes('uber') || desc.includes('ola') || desc.includes('taxi') || 
+      desc.includes('transport') || desc.includes('fuel') || desc.includes('petrol') ||
+      desc.includes('diesel') || desc.includes('bus') || desc.includes('metro')) {
+    return 'Transportation';
+  }
+  
+  // Shopping
+  if (desc.includes('amazon') || desc.includes('flipkart') || desc.includes('shopping') ||
+      desc.includes('mall') || desc.includes('store') || desc.includes('myntra') ||
+      desc.includes('clothing') || desc.includes('shoes')) {
+    return 'Shopping';
+  }
+  
+  // Entertainment
+  if (desc.includes('movie') || desc.includes('netflix') || desc.includes('entertainment') ||
+      desc.includes('game') || desc.includes('spotify') || desc.includes('youtube')) {
+    return 'Entertainment';
+  }
+  
+  // Bills & Utilities
+  if (desc.includes('electricity') || desc.includes('bill') || desc.includes('utility') ||
+      desc.includes('water') || desc.includes('internet') || desc.includes('mobile') ||
+      desc.includes('recharge') || desc.includes('wifi')) {
+    return 'Bills & Utilities';
+  }
+  
+  // Healthcare
+  if (desc.includes('doctor') || desc.includes('hospital') || desc.includes('medicine') ||
+      desc.includes('pharmacy') || desc.includes('medical') || desc.includes('health')) {
+    return 'Healthcare';
+  }
+  
+  // Housing
+  if (desc.includes('rent') || desc.includes('mortgage') || desc.includes('housing') ||
+      desc.includes('maintenance') || desc.includes('society')) {
+    return 'Housing';
+  }
+  
+  return 'Miscellaneous';
+};
+
+// Enhanced CSV upload endpoint
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  console.log('📁 File upload request received');
+  
+  // Set timeout to prevent hanging
+  const timeout = setTimeout(() => {
+    console.error('⏰ Upload timeout - forcing response');
+    if (!res.headersSent) {
+      res.status(408).json({ success: false, error: 'Upload timeout' });
+    }
+  }, 30000); // 30 second timeout
+  
+  try {
+    if (!req.file) {
+      clearTimeout(timeout);
+      console.error('❌ No file provided');
+      return res.status(400).json({ success: false, error: 'No file provided' });
+    }
     
-    fs.createReadStream(filePath)
-      .pipe(csv())
+    console.log('📄 Processing file:', req.file.originalname, 'Size:', req.file.size, 'bytes');
+    
+    const newExpenses = [];
+    const errors = [];
+    let lineCount = 0;
+    
+    fs.createReadStream(req.file.path)
+      .pipe(csvParser({
+        skipEmptyLines: true,
+        headers: ['Date', 'Description', 'Amount', 'Mode']
+      }))
       .on('data', (data) => {
-        // Normalize field names (handle different CSV formats)
-        const expense = {
-          date: data.Date || data.date || data.DATE,
-          description: data.Description || data.description || data.DESCRIPTION,
-          amount: data.Amount || data.amount || data.AMOUNT,
-          mode: data.Mode || data.mode || data.MODE || 'Unknown'
-        };
+        lineCount++;
+        console.log(`Processing line ${lineCount}:`, data);
         
-        // Validate required fields
-        if (expense.date && expense.description && expense.amount) {
-          // assign a lightweight unique id
-          expense.id = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-          results.push(expense);
+        try {
+          if (!data.Date || !data.Description || !data.Amount) {
+            errors.push(`Line ${lineCount}: Missing required fields`);
+            return;
+          }
+          
+          const amount = parseFloat(data.Amount.toString().replace(/[^\d.-]/g, ''));
+          if (isNaN(amount) || amount <= 0) {
+            errors.push(`Line ${lineCount}: Invalid amount '${data.Amount}'`);
+            return;
+          }
+          
+          const expense = {
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            date: data.Date,
+            description: data.Description.trim(),
+            amount: amount,
+            mode: data.Mode || 'Unknown',
+            category: categorizeExpense(data.Description)
+          };
+          
+          newExpenses.push(expense);
+          console.log('✅ Added expense:', expense.description, '₹' + expense.amount);
+          
+        } catch (error) {
+          console.error(`Error processing line ${lineCount}:`, error);
+          errors.push(`Line ${lineCount}: ${error.message}`);
         }
       })
       .on('end', () => {
-        resolve(results);
+        clearTimeout(timeout);
+        
+        try {
+          console.log(`📊 CSV processing complete. Processed ${lineCount} lines, added ${newExpenses.length} expenses`);
+          
+          // Clean up uploaded file
+          try {
+            fs.unlinkSync(req.file.path);
+            console.log('🗑️ Cleaned up temporary file');
+          } catch (e) {
+            console.warn('⚠️ Could not clean up temporary file:', e.message);
+          }
+          
+          // Add to expenses array
+          expenses.push(...newExpenses);
+          
+          // Generate analytics
+          const analytics = generateAnalytics(expenses);
+          
+          const response = {
+            success: true,
+            message: `Successfully processed ${newExpenses.length} expenses from ${lineCount} lines`,
+            data: {
+              newExpenses: newExpenses.length,
+              totalExpenses: expenses.length,
+              analytics: analytics,
+              errors: errors.length > 0 ? errors.slice(0, 5) : []
+            },
+            expenses: expenses
+          };
+          
+          console.log('📤 Sending success response');
+          
+          if (!res.headersSent) {
+            res.json(response);
+          }
+          
+        } catch (error) {
+          console.error('🔥 Error in end handler:', error);
+          if (!res.headersSent) {
+            res.status(500).json({ success: false, error: 'Processing failed: ' + error.message });
+          }
+        }
       })
       .on('error', (error) => {
-        reject(error);
+        clearTimeout(timeout);
+        console.error('🔥 CSV parsing error:', error);
+        
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (e) {}
+        
+        if (!res.headersSent) {
+          res.status(500).json({ 
+            success: false,
+            error: 'CSV processing failed: ' + error.message 
+          });
+        }
       });
-  });
-}
-
-// Routes
-
-/**
- * Health check endpoint
- */
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Expense Analyzer API is running' });
-});
-
-/**
- * Upload CSV file and process expenses
- */
-app.post('/api/upload', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    // Parse CSV file
-    const expenses = await parseCSVFile(req.file.path);
-    
-    // Categorize expenses
-    const categorizedExpenses = categorizeExpenses(expenses);
-    // Ensure each expense has an id (categorizer may not add it)
-    categorizedExpenses.forEach(exp => {
-      if (!exp.id) exp.id = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-    });
-    
-    // Store in memory
-    expensesData = categorizedExpenses;
-    
-    // Delete uploaded file after processing
-    fs.unlinkSync(req.file.path);
-    
-    // Get analytics
-    const categoryTotals = groupByCategory(categorizedExpenses);
-    const monthlyTotals = groupByMonth(categorizedExpenses);
-    const topCategories = getTopCategories(categoryTotals);
-    const insights = generateInsights(categorizedExpenses, categoryTotals, monthlyTotals);
-    
-    res.json({
-      success: true,
-      message: `Successfully processed ${categorizedExpenses.length} transactions`,
-      data: {
-        expenses: categorizedExpenses,
-        categoryTotals,
-        monthlyTotals,
-        topCategories,
-        insights
-      }
-    });
-    
+      
   } catch (error) {
-    console.error('Error processing file:', error);
-    res.status(500).json({ 
-      error: 'Error processing file', 
-      message: error.message 
-    });
+    clearTimeout(timeout);
+    console.error('🔥 Upload error:', error);
+    
+    if (req.file?.path) {
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+    }
+    
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        success: false,
+        error: 'Internal server error: ' + error.message
+      });
+    }
   }
 });
 
-/**
- * Add manual expense entry
- */
+// Generate analytics helper function
+const generateAnalytics = (expensesData) => {
+  if (!expensesData || expensesData.length === 0) {
+    return {
+      totalSpending: 0,
+      averageTransaction: 0,
+      transactionCount: 0,
+      categoryBreakdown: {},
+      insights: ['No expenses to analyze']
+    };
+  }
+  
+  const totalSpending = expensesData.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  const categoryTotals = {};
+  
+  expensesData.forEach(expense => {
+    const category = expense.category || 'Miscellaneous';
+    categoryTotals[category] = (categoryTotals[category] || 0) + (expense.amount || 0);
+  });
+  
+  const topCategory = Object.keys(categoryTotals).reduce((a, b) => 
+    categoryTotals[a] > categoryTotals[b] ? a : b, Object.keys(categoryTotals)[0] || 'None'
+  );
+  
+  return {
+    totalSpending: totalSpending,
+    averageTransaction: totalSpending / expensesData.length,
+    transactionCount: expensesData.length,
+    categoryBreakdown: categoryTotals,
+    topCategory: topCategory,
+    insights: [
+      `Total spending: ₹${totalSpending.toFixed(2)}`,
+      `Average per transaction: ₹${(totalSpending / expensesData.length).toFixed(2)}`,
+      `Most spending in: ${topCategory} (₹${(categoryTotals[topCategory] || 0).toFixed(2)})`
+    ]
+  };
+};
+
 app.post('/api/expenses', (req, res) => {
+  console.log('📝 Manual expense entry request:', req.body);
+  
   try {
-    const { date, description, amount, mode, currency = 'INR' } = req.body;
+    const { date, description, amount, mode } = req.body || {};
     
-    // Validate input
     if (!date || !description || !amount) {
       return res.status(400).json({ 
+        success: false,
         error: 'Missing required fields: date, description, amount' 
       });
     }
     
-    // Create expense object with currency
-    const expense = {
-      id: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
-      date,
-      description,
-      amount: parseFloat(amount),
-      mode: mode || 'Manual Entry',
-      currency: currency || 'INR',
-      originalAmount: parseFloat(amount), // Store original amount
-      originalCurrency: currency || 'INR'  // Store original currency
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Amount must be a positive number' 
+      });
+    }
+    
+    const newExpense = { 
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      date: date.trim(), 
+      description: description.trim(), 
+      amount: parsedAmount, 
+      mode: (mode || 'Cash').trim(), 
+      category: categorizeExpense(description)
     };
     
-    // Categorize single expense
-    const categorizedExpenses = categorizeExpenses([expense]);
-    const categorizedExpense = categorizedExpenses[0];
+    expenses.push(newExpense);
     
-    // Add to data store
-    expensesData.push(categorizedExpense);
+    const analytics = generateAnalytics(expenses);
     
-    res.json({
+    console.log('✅ Manual expense added:', newExpense);
+    
+    res.json({ 
       success: true,
       message: 'Expense added successfully',
-      data: categorizedExpense
+      expense: newExpense, 
+      totalExpenses: expenses.length,
+      analytics: analytics
     });
     
   } catch (error) {
-    console.error('Error adding expense:', error);
+    console.error('🔥 Manual entry error:', error);
     res.status(500).json({ 
-      error: 'Error adding expense', 
-      message: error.message 
+      success: false,
+      error: 'Failed to add expense: ' + error.message
     });
   }
 });
 
-/**
- * Get all expenses and analytics
- */
 app.get('/api/expenses', (req, res) => {
-  try {
-    const { currency = 'INR' } = req.query; // Get currency from query params
-    
-    const categoryTotals = groupByCategory(expensesData);
-    const monthlyTotals = groupByMonth(expensesData);
-    const topCategories = getTopCategories(categoryTotals);
-    const insights = generateInsights(expensesData, categoryTotals, monthlyTotals, currency);
-    
-    res.json({
-      success: true,
-      data: {
-        expenses: expensesData,
-        categoryTotals,
-        monthlyTotals,
-        topCategories,
-        insights
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error fetching expenses:', error);
-    res.status(500).json({ 
-      error: 'Error fetching expenses', 
-      message: error.message 
-    });
-  }
+  const analytics = generateAnalytics(expenses);
+  
+  res.json({ 
+    success: true,
+    expenses: expenses,
+    totalExpenses: expenses.length,
+    analytics: analytics
+  });
 });
 
-/**
- * Clear all expenses
- */
+// Delete all expenses
 app.delete('/api/expenses', (req, res) => {
-  try {
-    expensesData = [];
-    res.json({
-      success: true,
-      message: 'All expenses cleared'
-    });
-  } catch (error) {
-    console.error('Error clearing expenses:', error);
-    res.status(500).json({ 
-      error: 'Error clearing expenses', 
-      message: error.message 
-    });
-  }
+  const deletedCount = expenses.length;
+  expenses = [];
+  
+  console.log(`🗑️ Cleared ${deletedCount} expenses`);
+  
+  res.json({ 
+    success: true,
+    message: `Cleared ${deletedCount} expenses`,
+    totalExpenses: 0
+  });
 });
 
-/**
- * Delete a specific expense by index
- */
-app.delete('/api/expenses/:index', (req, res) => {
-  try {
-    const param = req.params.index;
-    console.log('Delete request for:', param);
-    
-    // First try to find by ID (string match)
-    const idxById = expensesData.findIndex(e => e.id === param);
-    if (idxById !== -1) {
-      console.log('Found expense by ID at index:', idxById);
-      const deletedExpense = expensesData.splice(idxById, 1)[0];
-      return res.json({ success: true, message: 'Expense deleted successfully', deletedExpense });
-    }
-    
-    // If not found by ID, try numeric index (legacy support)
-    const maybeIndex = parseInt(param);
-    if (!isNaN(maybeIndex) && Number.isInteger(maybeIndex)) {
-      const index = maybeIndex;
-      if (index >= 0 && index < expensesData.length) {
-        console.log('Found expense by index:', index);
-        const deletedExpense = expensesData.splice(index, 1)[0];
-        return res.json({ success: true, message: 'Expense deleted successfully', deletedExpense });
-      } else {
-        return res.status(400).json({ error: 'Invalid expense index' });
-      }
-    }
-
-    // Neither ID nor valid index found
-    return res.status(404).json({ error: 'Expense not found' });
-
-  } catch (error) {
-    console.error('Error deleting expense:', error);
-    res.status(500).json({ 
-      error: 'Error deleting expense', 
-      message: error.message 
-    });
-  }
-});
-
-/**
- * Get analytics only
- */
-app.get('/api/analytics', (req, res) => {
-  try {
-    const categoryTotals = groupByCategory(expensesData);
-    const monthlyTotals = groupByMonth(expensesData);
-    const topCategories = getTopCategories(categoryTotals);
-    const insights = generateInsights(expensesData, categoryTotals, monthlyTotals);
-    
-    res.json({
-      success: true,
-      data: {
-        categoryTotals,
-        monthlyTotals,
-        topCategories,
-        insights
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error fetching analytics:', error);
-    res.status(500).json({ 
-      error: 'Error fetching analytics', 
-      message: error.message 
-    });
-  }
-});
-
-/**
- * Chat endpoint for Finance Bot powered by Gemini AI
- */
-app.post('/api/chat', async (req, res) => {
-  try {
-    const { message } = req.body;
-    
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({
-        error: 'Message is required and must be a string'
-      });
-    }
-
-    if (!process.env.GEMINI_API_KEY) {
-      console.error('❌ Gemini API key not configured. Make sure it is set in the .env file.');
-      return res.status(500).json({
-        error: 'Gemini API key not configured'
-      });
-    }
-    console.log('✅ Gemini API key found.');
-    console.log('Received message:', message);
-
-    // Finance-focused system prompt
-    const systemPrompt = `You are FinBot, a helpful and friendly AI finance assistant. Your expertise includes:
-
-CORE RESPONSIBILITIES:
-- Personal budgeting and expense tracking
-- Investment advice for beginners to intermediate investors  
-- Savings strategies and financial planning
-- Debt management and credit improvement
-- Financial education and literacy
-- Currency and market insights
-- Tax planning basics (US-focused but mention international considerations)
-
-PERSONALITY:
-- Friendly, encouraging, and supportive
-- Use simple language and avoid jargon
-- Provide actionable, practical advice
-- Always emphasize the importance of personal research
-- Be optimistic but realistic about financial goals
-
-RESPONSE GUIDELINES:
-- Keep responses concise (under 200 words when possible)
-- Use bullet points for multiple tips
-- Include relevant emojis sparingly (💰 💡 📊 📈 ✅)
-- Always add a disclaimer for investment advice
-- Ask follow-up questions to provide better personalized advice
-- Reference the user's expense tracking app when relevant
-
-IMPORTANT DISCLAIMERS:
-- Always mention that advice is for educational purposes
-- Recommend consulting financial advisors for complex situations
-- Emphasize personal research before making investment decisions
-
-User Question: ${message}
-
-Please provide a helpful finance response:`;
-
-    const result = await model.generateContent(systemPrompt);
-    const response = result.response;
-    const text = response.text();
-
-    res.json({
-      success: true,
-      response: text
-    });
-
-  } catch (error) {
-    console.error('Chat API Error:', error);
-    
-    // Provide fallback response
-    const fallbackResponses = {
-      budget: "💰 Creating a budget is essential! Start with the 50/30/20 rule: 50% for needs, 30% for wants, and 20% for savings. Track your income and expenses for a month to see where your money goes. Our expense tracker can help you categorize spending! What's your biggest spending category?",
-      investment: "📊 Great question! For beginners, consider starting with:\n• Index funds or ETFs (diversified, lower risk)\n• Dollar-cost averaging strategy\n• Emergency fund first (3-6 months expenses)\n• Only invest money you won't need for 5+ years\n\n⚠️ Always do your research and consider consulting a financial advisor. What's your investment timeline?",
-      expense: "📈 Smart expense tracking tips:\n• Categorize everything (housing, food, transport, entertainment)\n• Review spending weekly\n• Use our built-in tracker for insights\n• Look for patterns and surprises\n• Set spending limits per category\n\nSmall daily expenses often add up more than you think! What category surprises you most?",
-      saving: "✅ Proven saving strategies:\n• Pay yourself first - save before spending\n• Automate transfers to savings\n• Use the envelope method for discretionary spending\n• Find cheaper alternatives for recurring expenses\n• Set specific, measurable goals\n\n💡 Even $5/day = $1,825/year! What's your savings goal?"
-    };
-
-    const userMessage = req.body.message.toLowerCase();
-    let fallbackResponse = "💡 I'm here to help with all your finance questions! I can assist with budgeting, investment basics, saving strategies, debt management, credit improvement, and financial planning. What specific area would you like to explore?";
-
-    if (userMessage.includes('budget')) fallbackResponse = fallbackResponses.budget;
-    else if (userMessage.includes('invest')) fallbackResponse = fallbackResponses.investment;
-    else if (userMessage.includes('expense') || userMessage.includes('track')) fallbackResponse = fallbackResponses.expense;
-    else if (userMessage.includes('save') || userMessage.includes('saving')) fallbackResponse = fallbackResponses.saving;
-
-    res.json({
-      success: true,
-      response: fallbackResponse + "\n\n(Note: AI assistant temporarily unavailable, using basic responses)"
-    });
-  }
-});
-
-// Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Expense Analyzer API running on http://localhost:${PORT}`);
-  console.log(`📊 Ready to process expense data!`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

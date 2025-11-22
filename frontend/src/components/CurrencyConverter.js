@@ -16,7 +16,7 @@ function CurrencyConverter() {
   const [convertedAmount, setConvertedAmount] = useState(0);
   const [exchangeRate, setExchangeRate] = useState(0);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [favorites, setFavorites] = useState(['USD', 'EUR', 'GBP', 'JPY', 'INR']);
+  const favorites = ['USD', 'EUR', 'GBP', 'JPY', 'INR'];
   const [conversionHistory, setConversionHistory] = useState([]);
 
   const popularPairs = getPopularCurrencyPairs();
@@ -26,6 +26,7 @@ function CurrencyConverter() {
     if (amount && fromCurrency && toCurrency) {
       convertCurrency();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount, fromCurrency, toCurrency]);
 
   const convertCurrency = async () => {

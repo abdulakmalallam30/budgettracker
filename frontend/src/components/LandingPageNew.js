@@ -1,24 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  ArrowRight, 
-  PieChart, 
   TrendingUp, 
-  BarChart3,
-  Upload,
-  Shield,
+  Upload, 
+  PieChart, 
+  Shield, 
   Star,
-  Target,
-  Zap
+  Zap,
+  ArrowRight,
+  Target
 } from 'lucide-react';
 import { TypingText, GlitchText } from './TypingText';
 import FeatureCard3D from './FeatureCard3D';
 import { InteractiveParticles, FloatingFinancialIcons } from './InteractiveParticles';
 import { SparkleButton } from './SparkleComponents';
 
-function LandingPage({ onStart }) {
-  const [currentFeature, setCurrentFeature] = useState(0);
-
+function LandingPageNew({ onStart }) {
   const features = [
     {
       icon: Upload,
@@ -58,10 +55,7 @@ function LandingPage({ onStart }) {
   ];
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentFeature((prev) => (prev + 1) % features.length);
-    }, 3000);
-    return () => clearInterval(interval);
+    // Feature rotation removed for simplicity
   }, [features.length]);
 
   return (
@@ -272,4 +266,4 @@ function LandingPage({ onStart }) {
   );
 }
 
-export default LandingPage;
+export default LandingPageNew;

@@ -44,7 +44,7 @@ function BudgetTracker({ totalBudget, setTotalBudget, totalSpent, budgetEnabled,
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl p-6 mb-8 shadow-lg border border-gray-200 relative"
+      className="bg-black rounded-xl p-6 mb-8 shadow-lg border border-gray-200 relative"
     >
       {/* Background indicator */}
       <div className={`absolute inset-0 bg-gradient-to-br ${getStatusColor()} opacity-5 -z-10 rounded-xl`}></div>
@@ -59,8 +59,8 @@ function BudgetTracker({ totalBudget, setTotalBudget, totalSpent, budgetEnabled,
             <Wallet className="text-white" size={28} />
           </motion.div>
           <div>
-            <h3 className="text-xl font-bold text-gray-800">💰 Budget Tracker</h3>
-            <p className="text-gray-600 text-sm">Monitor your spending in real-time</p>
+            <h3 className="text-xl font-bold text-white-800">💰 Budget Tracker</h3>
+            <p className="text-white-600 text-sm">Monitor your spending in real-time</p>
           </div>
         </div>
         

@@ -69,13 +69,9 @@ function ManualEntry({ onSubmit, loading, selectedCurrency = 'INR' }) {
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative group"
-          >
-            <label className="flex items-center gap-2 text-gray-700 text-sm font-semibold mb-2">
-              <Calendar size={16} />
+          <div className="relative group">
+            <label className="flex items-center gap-2 text-gray-300 text-sm font-semibold mb-2">
+              <Calendar size={16} className="text-violet-400" />
               Date
             </label>
             <div className="relative">
@@ -85,20 +81,15 @@ function ManualEntry({ onSubmit, loading, selectedCurrency = 'INR' }) {
                 value={formData.date}
                 onChange={handleChange}
                 max={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 rounded-lg bg-white border-2 border-gray-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all text-gray-900 font-semibold"
+                className="w-full px-4 py-3 rounded-xl bg-[#1A1D29] border-2 border-gray-800/50 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all text-white font-medium hover:border-gray-700"
                 required
               />
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="relative group"
-          >
-            <label className="flex items-center gap-2 text-gray-700 text-sm font-semibold mb-2">
-              <DollarSign size={16} />
+          <div className="relative group">
+            <label className="flex items-center gap-2 text-gray-300 text-sm font-semibold mb-2">
+              <DollarSign size={16} className="text-emerald-400" />
               Amount ({getCurrencySymbol(selectedCurrency)})
             </label>
             <div className="relative">
@@ -107,25 +98,20 @@ function ManualEntry({ onSubmit, loading, selectedCurrency = 'INR' }) {
                 name="amount"
                 value={formData.amount}
                 onChange={handleChange}
-                placeholder="Enter amount"
+                placeholder="0.00"
                 step="0.01"
                 min="0"
-                className="w-full px-4 py-3 rounded-lg bg-white border-2 border-gray-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all text-gray-900 font-semibold text-lg pr-8"
+                className="w-full px-4 py-3 rounded-xl bg-[#1A1D29] border-2 border-gray-800/50 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-white font-semibold text-lg pr-12 hover:border-gray-700"
                 required
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{getCurrencySymbol(selectedCurrency)}</div>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg">{getCurrencySymbol(selectedCurrency)}</div>
             </div>
-          </motion.div>
+          </div>
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="relative group"
-        >
-          <label className="flex items-center gap-2 text-gray-700 text-sm font-semibold mb-2">
-            <FileText size={16} />
+        <div className="relative group">
+          <label className="flex items-center gap-2 text-gray-300 text-sm font-semibold mb-2">
+            <FileText size={16} className="text-blue-400" />
             Description
           </label>
           <input
@@ -134,19 +120,14 @@ function ManualEntry({ onSubmit, loading, selectedCurrency = 'INR' }) {
             value={formData.description}
             onChange={handleChange}
             placeholder="e.g., Zomato - Lunch, Uber ride, Amazon shopping"
-            className="w-full px-4 py-3 rounded-lg bg-white border-2 border-gray-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all text-gray-900"
+            className="w-full px-4 py-3 rounded-xl bg-[#1A1D29] border-2 border-gray-800/50 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-white hover:border-gray-700"
             required
           />
-        </motion.div>
+        </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="relative group"
-        >
-          <label className="flex items-center gap-2 text-gray-700 text-sm font-semibold mb-2">
-            <CreditCard size={16} />
+        <div className="relative group">
+          <label className="flex items-center gap-2 text-gray-300 text-sm font-semibold mb-2">
+            <CreditCard size={16} className="text-indigo-400" />
             Payment Mode
           </label>
           <select
@@ -159,7 +140,7 @@ function ManualEntry({ onSubmit, loading, selectedCurrency = 'INR' }) {
               <option key={mode} value={mode} className="bg-white">{mode}</option>
             ))}
           </select>
-        </motion.div>
+        </div>
 
         <motion.button
           whileHover={{ scale: 1.02, y: -2 }}

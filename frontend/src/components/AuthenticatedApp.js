@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { signOutUser } from '../firebase/auth';
-import AuthPage from './AuthPage';
+import LandingPagePremium from './LandingPagePremium';
 import LandingPage from './LandingPage';
-import Header from './Header';
+import PremiumHeader from './PremiumHeader';
+import { PremiumTabs, TabButton } from './PremiumTabs';
 import FileUpload from './FileUpload';
 import ManualEntry from './ManualEntry';
 import Dashboard from './Dashboard';
@@ -11,24 +12,32 @@ import InsightsPanel from './InsightsPanel';
 import BudgetTracker from './BudgetTracker';
 import CurrencySelector from './CurrencySelector';
 import CurrencyConverter from './CurrencyConverter';
-import FinanceBot from './FinanceBot';
-import AnimatedBackground from './AnimatedBackground';
-import { SparkleButton } from './SparkleComponents';
-import { FloatingCard } from './FloatingCards';
-import { Loader, BarChart3, Receipt, Wallet, TrendingUp, Calculator, Bot, LogOut } from 'lucide-react';
+import SplitExpenseCalculator from './SplitExpenseCalculator';
+import SpendingHeatmap from './SpendingHeatmap';
+import DebtTracker from './DebtTracker';
+import IncomeVsExpense from './IncomeVsExpense';
+import { ToastContainer, useToast } from './Toast';
+import { Loader, BarChart3, Receipt, Wallet, TrendingUp, Calculator, LogOut, Upload, Trash2, Edit, Users, Calendar, CreditCard, ArrowLeftRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function AuthenticatedApp() {
   const { currentUser, userData, saveUserData } = useAuth();
-  const [showLanding, setShowLanding] = useState(true);
+  const { toasts, addToast, removeToast } = useToast();
+  // Disable landing page completely for instant load
+  const [showLanding, setShowLanding] = useState(false);
   const [expenses, setExpenses] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('upload');
-  const [mainView, setMainView] = useState('overview');
+  const [mainView, setMainView] = useState('debt');
   const [totalBudget, setTotalBudget] = useState(50000);
   const [budgetEnabled, setBudgetEnabled] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState('INR');
+
+  // Debug loading state
+  useEffect(() => {
+    console.log('🔄 Loading state changed:', loading, '| Expenses count:', expenses.length, '| Has analytics:', !!analytics);
+  }, [loading, expenses.length, analytics]);
 
   // Clear state when user changes (important for user isolation)
   useEffect(() => {
@@ -39,7 +48,7 @@ function AuthenticatedApp() {
       setTotalBudget(50000);
       setBudgetEnabled(false);
       setSelectedCurrency('INR');
-      setMainView('overview');
+      setMainView('debt');
       setActiveTab('upload');
     }
   }, [currentUser]);
@@ -86,6 +95,7 @@ function AuthenticatedApp() {
   }, [userData, currentUser]);
 
   const generateAnalytics = (expensesData) => {
+    console.log('📈 generateAnalytics called with', expensesData.length, 'expenses');
     const categoryTotals = {};
     const monthlyTotals = {};
     const dailyTotals = {};
@@ -161,6 +171,7 @@ function AuthenticatedApp() {
       monthlyTotals,
       insights
     });
+    console.log('✅ Analytics generated and set:', { categoryCount: Object.keys(categoryTotals).length, totalSpending, transactionCount: expensesData.length });
   };
 
   const saveExpensesToFirebase = useCallback(async (newExpenses) => {
@@ -184,42 +195,55 @@ function AuthenticatedApp() {
     }
   }, [currentUser, totalBudget, budgetEnabled, selectedCurrency, saveUserData]);
 
-  const handleFileUpload = async (file) => {
+  const handleFileUpload = async (data) => {
+    // FileUpload component passes the processed expenses data
     try {
       setLoading(true);
-      // For now, we'll process the CSV on the frontend
-      // In a full implementation, you might want to keep the backend processing
+      console.log('📁 File upload callback triggered with data:', data);
       
-      const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      
-      const newExpenses = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
-        if (values.length >= 3) {
-          const expense = {
-            id: `${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
-            date: values[0] || new Date().toISOString().split('T')[0],
-            description: values[1] || 'Unknown',
-            amount: parseFloat(values[2]) || 0,
-            mode: values[3] || 'Unknown',
-            category: categorizeExpense(values[1] || 'Unknown'),
-            currency: selectedCurrency
-          };
-          newExpenses.push(expense);
+      if (data && data.expenses && data.expenses.length > 0) {
+        // Use the expenses data passed from FileUpload component
+        const allExpenses = data.expenses;
+        console.log(`📊 Setting ${allExpenses.length} expenses from ${data.source || 'unknown'} source`);
+        
+        setExpenses(allExpenses);
+        generateAnalytics(allExpenses);
+        await saveExpensesToFirebase(allExpenses);
+        
+        addToast(`Successfully loaded ${allExpenses.length} expenses`, 'success');
+        console.log('✅ Upload complete - expenses set, analytics generated');
+        return { success: true, message: `Loaded ${allExpenses.length} expenses` };
+      } else {
+        // Fallback: try to fetch from backend
+        console.log('⚠️ No data in callback, trying backend fetch...');
+        const response = await fetch('http://localhost:5000/api/expenses').catch(() => null);
+        
+        if (response && response.ok) {
+          const result = await response.json();
+          console.log('📊 Fetched expenses from backend:', result);
+          
+          if (result.success && result.expenses) {
+            const allExpenses = result.expenses;
+            setExpenses(allExpenses);
+            generateAnalytics(allExpenses);
+            await saveExpensesToFirebase(allExpenses);
+            
+            addToast(`Successfully loaded ${allExpenses.length} expenses`, 'success');
+            console.log('✅ Backend fetch complete - expenses set, analytics generated');
+            return { success: true, message: `Loaded ${allExpenses.length} expenses` };
+          }
         }
+        
+        addToast('No expense data available', 'warning');
+        console.log('⚠️ No expense data available from any source');
+        return { success: false, message: 'No expense data available' };
       }
-      
-      const allExpenses = [...expenses, ...newExpenses];
-      setExpenses(allExpenses);
-      generateAnalytics(allExpenses);
-      await saveExpensesToFirebase(allExpenses);
-      
-      return { success: true, message: `Successfully processed ${newExpenses.length} transactions` };
     } catch (error) {
-      console.error('Error processing file:', error);
-      return { success: false, message: 'Error processing file' };
+      addToast('Failed to upload file: ' + error.message, 'error');
+      console.error('🔥 File upload callback error:', error);
+      return { success: false, message: error.message };
     } finally {
+      console.log('🔄 Setting loading to false');
       setLoading(false);
     }
   };
@@ -253,9 +277,11 @@ function AuthenticatedApp() {
         localStorage.setItem(userSpecificKey, JSON.stringify(newExpenses));
       }
       
+      addToast('Expense added successfully', 'success');
       console.log('Expense added successfully');
       return { success: true, message: 'Expense added successfully' };
     } catch (error) {
+      addToast('Failed to add expense: ' + error.message, 'error');
       console.error('Error adding expense:', error);
       return { success: false, message: 'Error adding expense: ' + error.message };
     } finally {
@@ -265,14 +291,24 @@ function AuthenticatedApp() {
 
   const handleClearData = async () => {
     if (window.confirm('Are you sure you want to clear all expense data?')) {
-      setExpenses([]);
-      setAnalytics(null);
-      await saveExpensesToFirebase([]);
-      
-      // Also clear user-specific localStorage
-      if (currentUser) {
-        const userSpecificKey = `expenses_${currentUser.uid}`;
-        localStorage.removeItem(userSpecificKey);
+      try {
+        console.log('🗑️ Clearing all data...');
+        setLoading(false); // Reset loading state
+        setExpenses([]);
+        setAnalytics(null);
+        await saveExpensesToFirebase([]);
+        
+        // Also clear user-specific localStorage
+        if (currentUser) {
+          const userSpecificKey = `expenses_${currentUser.uid}`;
+          localStorage.removeItem(userSpecificKey);
+        }
+        
+        addToast('All expense data cleared successfully', 'success');
+        console.log('✅ All data cleared - ready for new upload');
+      } catch (error) {
+        console.error('Error clearing data:', error);
+        addToast('Failed to clear data', 'error');
       }
     }
   };
@@ -289,6 +325,8 @@ function AuthenticatedApp() {
         const userSpecificKey = `expenses_${currentUser.uid}`;
         localStorage.setItem(userSpecificKey, JSON.stringify(newExpenses));
       }
+      
+      addToast('Transaction deleted successfully', 'success');
     }
   };
 
@@ -316,6 +354,7 @@ function AuthenticatedApp() {
   };
 
   const handleStartApp = () => {
+    localStorage.setItem('hasVisitedApp', 'true');
     setShowLanding(false);
   };
 
@@ -336,7 +375,7 @@ function AuthenticatedApp() {
 
   // Show auth page if user is not logged in
   if (!currentUser) {
-    return <AuthPage onAuthSuccess={() => {}} />;
+    return <LandingPagePremium />;
   }
 
   // Show landing page
@@ -345,32 +384,20 @@ function AuthenticatedApp() {
   }
 
   const NavTab = ({ icon: Icon, label, value, count }) => (
-    <motion.button
-      whileHover={{ scale: 1.02, y: -1 }}
-      whileTap={{ scale: 0.98 }}
+    <TabButton
+      icon={Icon}
+      label={label}
+      isActive={mainView === value}
       onClick={() => setMainView(value)}
-      className={`relative px-6 py-3 rounded-lg font-bold font-display transition-all duration-300 flex items-center gap-3 ${
-        mainView === value
-          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
-          : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
-      }`}
-    >
-      <Icon className={mainView === value ? '' : ''} size={20} />
-      <span>{label}</span>
-      {count !== undefined && (
-        <span className="bg-white/20 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-          {count}
-        </span>
-      )}
-    </motion.button>
+      count={count}
+    />
   );
 
   return (
-    <div className="min-h-screen relative overflow-hidden font-sans">
-      <AnimatedBackground />
-      
-      <div className="relative z-10">
-        <Header 
+    <div className="min-h-screen bg-[#0F1117] font-sans transition-all duration-300">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <div className="relative">
+        <PremiumHeader 
           onClearData={handleClearData}
           currencySelector={
             <CurrencySelector 
@@ -380,112 +407,155 @@ function AuthenticatedApp() {
           }
           userInfo={
             <div className="flex items-center gap-4">
-              <span className="text-white font-medium">
-                Welcome, {currentUser.displayName || currentUser.email}
+              <span className="text-gray-300 font-medium text-sm">
+                {currentUser.displayName || currentUser.email}
               </span>
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[#1E2230] hover:bg-[#252936] text-gray-300 hover:text-white rounded-lg transition-all border border-gray-700/50 hover:border-gray-600"
               >
                 <LogOut size={16} />
-                Sign Out
+                <span className="text-sm font-medium">Sign Out</span>
               </button>
             </div>
           }
         />
         
         <div className="container mx-auto px-6 py-8 max-w-7xl">
-          <FloatingCard className="mb-8" delay={0.1} glowing={true}>
-            <div className="flex gap-4 mb-8 border-b border-white/20 pb-4">
-              <SparkleButton
+          <div className="mb-8">
+            <PremiumTabs>
+              <TabButton
+                icon={Upload}
+                label="Upload CSV"
+                isActive={activeTab === 'upload'}
                 onClick={() => setActiveTab('upload')}
-                className={`px-6 py-3 rounded-lg font-bold font-display transition-all duration-300 flex items-center gap-3 text-base ${
-                  activeTab === 'upload'
-                    ? 'bg-gradient-to-r from-neon-pink to-neon-purple text-white shadow-neon'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <span className="text-xl">📂</span>
-                <span>Upload CSV</span>
-              </SparkleButton>
-              <SparkleButton
+              />
+              <TabButton
+                icon={Edit}
+                label="Manual Entry"
+                isActive={activeTab === 'manual'}
                 onClick={() => setActiveTab('manual')}
-                className={`px-6 py-3 rounded-lg font-bold font-display transition-all duration-300 flex items-center gap-3 text-base ${
-                  activeTab === 'manual'
-                    ? 'bg-gradient-to-r from-neon-blue to-neon-green text-white shadow-neon'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <span className="text-xl">✍️</span>
-                <span>Manual Entry</span>
-              </SparkleButton>
+              />
+            </PremiumTabs>
+
+            <div className="mt-6 glass-card p-8 rounded-2xl border border-slate-700/50">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                  transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  {activeTab === 'upload' ? (
+                    <FileUpload onUpload={handleFileUpload} loading={loading} />
+                  ) : (
+                    <ManualEntry onSubmit={handleManualEntry} loading={loading} selectedCurrency={selectedCurrency} />
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                {activeTab === 'upload' ? (
-                  <FileUpload onUpload={handleFileUpload} loading={loading} />
-                ) : (
-                  <ManualEntry onSubmit={handleManualEntry} loading={loading} selectedCurrency={selectedCurrency} />
-                )}
-              </motion.div>
-            </AnimatePresence>
-
             {expenses.length > 0 && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-6 flex justify-end"
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 px-6 py-4 glass-card rounded-xl border border-emerald-500/30 flex justify-between items-center"
               >
-                <SparkleButton
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="h-2 w-2 bg-emerald-400 rounded-full animate-pulse" />
+                  <span className="text-slate-400">
+                    <span className="text-emerald-400 font-semibold">{expenses.length}</span> expenses loaded • Total: 
+                    <span className="text-white font-semibold ml-2 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                      {selectedCurrency}{analytics?.insights?.totalSpending?.toFixed(2) || '0.00'}
+                    </span>
+                  </span>
+                </div>
+                <button
                   onClick={handleClearData}
-                  className="px-6 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-300 flex items-center gap-2"
+                  className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg font-medium transition-all duration-300 flex items-center gap-2 border border-rose-500/20 hover:border-rose-500/40"
                 >
-                  <span className="text-lg">🗑️</span>
-                  <span>Clear All Data</span>
-                </SparkleButton>
+                  <Trash2 size={16} />
+                  <span>Clear All</span>
+                </button>
               </motion.div>
             )}
-          </FloatingCard>
+          </div>
 
-          {loading && (
-            <div className="flex justify-center items-center py-12">
-              <div className="relative">
-                <Loader className="animate-spin text-indigo-600" size={48} />
-              </div>
+          {loading && expenses.length === 0 && (
+            <div className="flex flex-col justify-center items-center py-16">
+              <Loader className="animate-spin text-violet-600 mb-4" size={56} />
+              <p className="text-gray-400 text-lg font-medium">Processing your expenses...</p>
+              <p className="text-gray-500 text-sm mt-2">This usually takes just a moment</p>
             </div>
           )}
 
-          {!loading && analytics && expenses.length > 0 && (
+          {/* Always visible features - Debt Tracker and Income vs Expense */}
+          <PremiumTabs className="mb-8">
+            <NavTab icon={CreditCard} label="Debt Tracker" value="debt" />
+            <NavTab icon={ArrowLeftRight} label="Income vs Expense" value="income-expense" />
+            <NavTab icon={Users} label="Split Bill" value="split" />
+            <NavTab icon={Calculator} label="Currency" value="converter" />
+          </PremiumTabs>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={mainView}
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -30, scale: 0.95 }}
+              transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+            >
+              {mainView === 'debt' && (
+                <DebtTracker selectedCurrency={selectedCurrency} />
+              )}
+
+              {mainView === 'income-expense' && (
+                <IncomeVsExpense selectedCurrency={selectedCurrency} />
+              )}
+
+              {mainView === 'split' && (
+                <SplitExpenseCalculator />
+              )}
+
+              {mainView === 'converter' && (
+                <CurrencyConverter />
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Expense-dependent features */}
+          {expenses.length > 0 && (
             <>
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex gap-4 mb-8 overflow-x-auto pb-2"
-              >
-                <NavTab icon={Wallet} label="Overview" value="overview" />
-                <NavTab icon={BarChart3} label="Visualizations" value="visualizations" />
-                <NavTab icon={Receipt} label="Transactions" value="transactions" count={expenses.length} />
-                <NavTab icon={TrendingUp} label="Insights" value="insights" />
-                <NavTab icon={Calculator} label="Currency" value="converter" />
-                <NavTab icon={Bot} label="Finance Bot" value="financebot" />
-              </motion.div>
+              <div className="mt-8">
+                <h3 className="text-xl font-bold text-white mb-4">Expense Analytics</h3>
+                <PremiumTabs className="mb-8">
+                  <NavTab icon={Wallet} label="Overview" value="overview" />
+                  <NavTab icon={BarChart3} label="Visualizations" value="visualizations" />
+                  <NavTab icon={Receipt} label="Transactions" value="transactions" count={expenses.length} />
+                  <NavTab icon={Calendar} label="Heatmap" value="heatmap" />
+                  <NavTab icon={TrendingUp} label="Insights" value="insights" />
+                </PremiumTabs>
+              </div>
 
               <AnimatePresence mode="wait">
                 <motion.div
                   key={mainView}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4 }}
+                  initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -30, scale: 0.95 }}
+                  transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
                 >
-                  {mainView === 'overview' && (
+                  {mainView === 'overview' && !analytics && (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="text-center">
+                        <Loader className="animate-spin text-violet-600 mx-auto mb-4" size={48} />
+                        <p className="text-gray-400">Generating analytics...</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {mainView === 'overview' && analytics && (
                     <div className="space-y-8">
                       <BudgetTracker 
                         totalBudget={totalBudget} 
@@ -499,7 +569,7 @@ function AuthenticatedApp() {
                     </div>
                   )}
                   
-                  {mainView === 'visualizations' && (
+                  {mainView === 'visualizations' && analytics && (
                     <Dashboard 
                       analytics={analytics} 
                       expenses={expenses}
@@ -519,16 +589,12 @@ function AuthenticatedApp() {
                     />
                   )}
 
-                  {mainView === 'insights' && (
+                  {mainView === 'insights' && analytics && (
                     <InsightsPanel insights={analytics.insights} detailed={true} />
                   )}
 
-                  {mainView === 'converter' && (
-                    <CurrencyConverter />
-                  )}
-
-                  {mainView === 'financebot' && (
-                    <FinanceBot />
+                  {mainView === 'heatmap' && (
+                    <SpendingHeatmap expenses={expenses} selectedCurrency={selectedCurrency} />
                   )}
                 </motion.div>
               </AnimatePresence>
